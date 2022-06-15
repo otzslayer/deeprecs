@@ -1,2 +1,2 @@
-# aerecs
-PyTorch implementations for recommendation algorithms based on autoencoders 
+# deeprecs
+PyTorch implementations for recommendation algorithms based on deep learning.
