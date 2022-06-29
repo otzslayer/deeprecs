@@ -127,3 +127,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# ksk 개인 파일
+Pipfile
+Pipfile.lock
+commit_template.txt
+check_commit_template.py
+setting.bat
+setting.sh
+.gitmessage
