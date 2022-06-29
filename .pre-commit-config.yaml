@@ -56,5 +56,5 @@ repos:
         args:
           [
             "--disable",
-            "unexpected-keyword-arg,no-value-for-parameter,too-many-function-args,missing-module-docstring,wildcard-import",
+            "unexpected-keyword-arg,no-value-for-parameter,too-many-function-args,missing-module-docstring,wildcard-import,super-init-not-called",
           ]
