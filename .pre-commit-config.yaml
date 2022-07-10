@@ -62,5 +62,8 @@ repos:
             "--disable=wildcard-import",
             "--disable=abstract-method",
             "--disable=arguments-differ",
-            "--disable=too-many-instance-attributes"
+            "--disable=too-many-instance-attributes",
+            "--disable=no-member",
+            "--disable=too-many-arguments",
+            "--good-names=i, j, k, w, wi, wj, wk, x, y, z, mu"
           ]
