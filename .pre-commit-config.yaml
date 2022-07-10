@@ -55,6 +55,12 @@ repos:
         types: [python]
         args:
           [
-            "--disable",
-            "unexpected-keyword-arg,no-value-for-parameter,too-many-function-args,missing-module-docstring,wildcard-import",
+            "--disable=unexpected-keyword-arg",
+            "--disable=no-value-for-parameter",
+            "--disable=too-many-function-args",
+            "--disable=missing-module-docstring",
+            "--disable=wildcard-import",
+            "--disable=abstract-method",
+            "--disable=arguments-differ",
+            "--disable=too-many-instance-attributes"
           ]
