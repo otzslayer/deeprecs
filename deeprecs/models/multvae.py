@@ -4,6 +4,7 @@ import torch
 from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils import data
+from tqdm.auto import tqdm
 
 from deeprecs.models.base import BaseRecommender
 
@@ -29,6 +30,8 @@ class MultVAE(BaseRecommender):
         총 KL 어닐링 스텝 수로 기본값은 200000
     anneal_cap : float, optional
         최대 어닐링 수준으로 기본값은 0.2
+    device : torch.device, optional
+        모델에 사용할 디바이스
 
     References
     ----------
@@ -47,6 +50,7 @@ class MultVAE(BaseRecommender):
         dropout: float = 0.2,
         total_anneal_steps: int = 200000,
         anneal_cap: float = 0.2,
+        device: torch.device = None,
     ):
 
         super().__init__()
@@ -72,6 +76,7 @@ class MultVAE(BaseRecommender):
         self.anneal = 0.0
         self.total_anneal_steps = total_anneal_steps
         self.anneal_cap = anneal_cap
+        self.device = device
 
         # Note that an encoder contains latent feature layer!
         # The dimension of the last layer in an encoder is the double of latent dimension.
@@ -90,6 +95,7 @@ class MultVAE(BaseRecommender):
                 for d_in, d_out in zip(decoder_dims[:-1], decoder_dims[1:])
             ]
         )
+        self.to(device=device)
 
     def forward(
         self, inputs: torch.Tensor
@@ -109,9 +115,35 @@ class MultVAE(BaseRecommender):
         return self._decode(z), mu, logvar
 
     def fit(
-        self, train_loader: data.DataLoader, optimizer: optim.Optimizer
+        self,
+        train_loader: data.DataLoader,
+        optimizer: optim.Optimizer,
+        epochs: int,
+        verbose: bool = False,
     ) -> torch.Tensor:
-        raise NotImplementedError
+        r"""모델을 데이터에 적합시킵니다.
+
+        Parameters
+        ----------
+        train_loader : data.DataLoader
+            학습 데이터 로더
+        optimizer : optim.Optimizer
+            최적화를 위한 옵티마이저
+        epochs : int
+            반복 횟수
+        verbose : bool, optional
+            이 값이 True면 학습 진행도와 매 epoch마다 loss를 출력합니다.
+        Returns
+        -------
+        torch.Tensor
+            학습 Loss
+        """
+        for epoch in tqdm(range(1, epochs + 1), disable=not verbose):
+            loss = self._train_one_epoch(
+                train_loader=train_loader, optimizer=optimizer
+            )
+            if verbose:
+                print(f"[Epoch {epoch}:: Loss {loss}")
 
     def predict(self):
         raise NotImplementedError
@@ -139,7 +171,7 @@ class MultVAE(BaseRecommender):
         self.train()
 
         for input_mat in train_loader:
-            input_mat = input_mat.float().cuda()
+            input_mat = input_mat.float().to(self.device)
             self.zero_grad()
 
             hat_x, mu, logvar = self.forward(input_mat)
