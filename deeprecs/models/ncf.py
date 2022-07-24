@@ -98,7 +98,8 @@ class NCF(BaseRecommender):
         user_embedding_mlp = self.embed_user_mlp(user_ind)
         item_embedding_mlp = self.embed_item_mlp(item_ind)
 
-        mlp_vector = torch.cat([user_embedding_mlp, item_embedding_mlp], dim=-1)
+        mlp_vector = torch.cat(
+            [user_embedding_mlp, item_embedding_mlp], dim=-1)
 
         gmf_vector = torch.mul(user_embedding_gmf, item_embedding_gmf)
 
