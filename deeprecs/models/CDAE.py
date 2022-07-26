@@ -25,18 +25,19 @@ class CDAE(BaseRecommender):
         https://alicezheng.org/papers/wsdm16-cdae.pdf
     """
 
-    def __init__(self, num_users, num_items, hidden_dim, hparams):
+    def __init__(self, num_users, num_items, hidden_dim, hparams, is_train):
         super().__init__()
 
         self.num_users = num_users
         self.num_items = num_items
         self.corruption_ratio = hparams["corruption_ratio"]
+        self.activation = hparams["activation"]
         self.hidden_dim = hidden_dim
 
         self.user_embedding = nn.Embedding(
             num_embeddings=self.num_users,  # embedding할 노드 수
-            embedding_dim=self.hidden_dim,
-        )  # embedding할 벡터 차원
+            embedding_dim=self.hidden_dim,  # embedding할 벡터 차원
+        )
         self.encoder = nn.Linear(self.num_items, self.hidden_dim)
         self.decoder = nn.Linear(self.hidden_dim, self.num_items)
 
@@ -44,16 +45,24 @@ class CDAE(BaseRecommender):
             "cuda" if torch.cuda.is_available() else "cpu"
         )
         self.to(self.device)
+        self.is_train = is_train
 
-    def forward(self, item_vector, user_vector):
+    def forward(self, user_idx, item_preference_vec):
         print("forward")
         # corrupted input vector
-        corrupted_item_vector = F.dropout(
-            input=item_vector, p=self.corruption_ratio, training=self.is_train
+        corrupted_item_preference_vec = F.dropout(
+            input=item_preference_vec,
+            p=self.corruption_ratio,
+            training=self.is_train,
         )
         # input layer: corrupted input vector + user specific node
-        # encode_layer = torch.append(corrupted_item_vector, user_vector)
-        corrupted_item_vector.append(user_vector)
+        output = self.encoder(
+            corrupted_item_preference_vec
+        ) + self.user_embedding(user_idx)
+        output = nn.ReLU(output)
+        output = self.decoder(output)
+        output = self.activation(output)
+        return output
 
     def fit(self):
         print("fit")
