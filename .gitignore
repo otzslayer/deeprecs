@@ -140,3 +140,4 @@ setting.bat
 setting.sh
 .gitmessage
 .archive
+*.ipynb
