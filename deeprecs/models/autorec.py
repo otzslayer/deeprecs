@@ -66,7 +66,7 @@ class AutoEncoder(BaseRecommender):
             raise ValueError
         self._loss = loss
 
-    def _set_optimzer(self, optimizer: str):
+    def _set_optimizer(self, optimizer: str):
         """
         optimizer 이름을 실제 optimizer로 변경
 

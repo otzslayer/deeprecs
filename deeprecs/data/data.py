@@ -27,7 +27,7 @@ class SampleDataset(Dataset):
         self.X = X
         self.y = y
 
-    def __getitem__(self, index: int) -> Tuple(torch.Tensor, torch.Tensor):
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.X[index], self.y[index]
 
     def __len__(self) -> int:
