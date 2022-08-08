@@ -1,9 +1,12 @@
 from typing import List
 
+
 import torch
-from torch import nn
+from torch.utils.data import DataLoader
+from torch import nn, optim
 
 from deeprecs.models.base import BaseRecommender
+from deeprecs.data import NCFData
 
 
 class NCF(BaseRecommender):
@@ -39,6 +42,7 @@ class NCF(BaseRecommender):
         model: str = "NMF",
         num_factor: int = 8,
         layers: List = None,
+        lr: float = 0.001,
         device: torch.device = None,
     ):
 
@@ -49,6 +53,7 @@ class NCF(BaseRecommender):
         self.model = model
         self.num_factor = num_factor
         self.layers = layers
+        self.lr = lr
 
         self.embed_user_gmf = nn.Embedding(self.num_users, self.num_factor)
         self.embed_item_gmf = nn.Embedding(self.num_items, self.num_factor)
@@ -66,7 +71,17 @@ class NCF(BaseRecommender):
             in_features=self.layers[-1] + self.num_factor, out_features=1
         )
         self.logistic = torch.nn.Sigmoid()
-        self.device = device
+        self.loss_func = nn.BCEWithLogitsLoss()
+
+        if self.model == 'NeuMF-pretrained':
+            self.optimizer = optim.SGD(self.parameters(), self.lr)
+        else:
+            self.optimizer = optim.Adam(self.parameters(), self.lr)
+
+        if not (device != 'cuda' or torch.cuda.is_available()):
+            self.devide = device
+        else:
+            raise RuntimeError(f'CUDA error: invalid argument {device}')
 
         self._init_weight()
 
@@ -117,13 +132,51 @@ class NCF(BaseRecommender):
 
         logits = self.affine_output(concat_vector)
         rating = self.logistic(logits)
-        return rating
+        return rating.view(-1)
 
-    def fit(self):
-        r"""모델을 데이터에 적합시키는 메서드로 `_train_one_epoch`을 반복합니다."""
+    def fit(self, epochs: int, train_loader: DataLoader):
+        r"""모델을 데이터에 적합시키는 메서드로 `_train_one_epoch`을 반복합니다.
+
+        NCF needs its own DataLoader 
+        ----------
+        train_dataset = NCFData(train_data,
+                                item_num,
+                                train_mat,
+                                num_ng,
+                                is_training=True)
+        train_loader = DataLoader(train_dataset,
+                                  batch_size,
+                                  shuffle=True,
+                                  num_workers=4)
+        """
+
+        self.train()
+        total_loss = 0
+        for epoch in range(epochs):
+            train_loader.dataset.ng_sample()
+            loss = self._train_one_epoch(train_loader)
+            total_loss += loss
+
+            print(f'[Training Epoch {epoch}] \
+                    Epoch Loss : {loss}, \
+                    Total Loss : {total_loss}')
 
     def predict(self):
         r"""추천 결과를 생성합니다."""
 
-    def _train_one_epoch(self):
+        self.eval()
+
+    def _train_one_epoch(self, train_loader: DataLoader):
         r"""데이터에 대해 1 epoch을 학습합니다."""
+
+        for batch in train_loader:
+            user = batch[0].to(self.device)
+            item = batch[1].to(self.device)
+            label = batch[2].float().to(self.device)
+
+            self.zero_grad()
+            pred = self.forward(user, item)
+            loss = self.loss_func(pred, label)
+            loss.backward()
+            self.optimizer.step()
+            return loss.items()
