@@ -21,7 +21,11 @@ class BaseRecommender(nn.Module):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def forward(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    @abstractmethod
+    def forward(self, *args, **kwargs):
         r"""Forward propagation을 수행합니다."""
 
     @abstractmethod

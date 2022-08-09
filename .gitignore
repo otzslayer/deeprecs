@@ -139,3 +139,5 @@ check_commit_template.py
 setting.bat
 setting.sh
 .gitmessage
+.archive
+*.ipynb
