@@ -1,11 +1,12 @@
 from typing import Final, Union
 
+import numpy as np
 import torch
 from torch import nn
 from torch.nn.modules.loss import _Loss
 from torch.optim import Adam
 from torch.optim.optimizer import Optimizer
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 from deeprecs.models.base import BaseRecommender
 from deeprecs.utils.helper import get_classes_from_module
@@ -52,6 +53,7 @@ class AutoEncoder(BaseRecommender):
         optimizer: Union[str, Optimizer] = "adam",
         loss: _Loss = nn.MSELoss(),
     ):
+        # TODO: device 추가
         super().__init__()
         self._input_dim = input_dim
         self._hidden_dim = hidden_dim
@@ -108,32 +110,29 @@ class AutoEncoder(BaseRecommender):
 
         return output
 
-    def fit(self, trainset: Dataset, epochs: int, batch_size: int):
+    def fit(self, train_loader: DataLoader, epochs: int = 10):
         """
         모델을 데이터에 적합시키는 메서드로 `_train_one_epoch`을 반복합니다.
 
         Parameters
         ----------
-        trainset : Dataset
-            학습에 사용할 데이터셋
+        train_loader : DataLoader
+            학습에 사용할 데이터로더
         epochs : int
             데이터셋을 반복할 횟수
-        batch_size : int
-            한 번 학습할 때 사용할 데이터의 크기
         """
         self.train()
         for _ in range(epochs):
-            train_loader = DataLoader(trainset, batch_size=batch_size)
             self._train_one_epoch(train_loader)
 
-    def predict(self, dataset: Dataset) -> torch.Tensor:
+    def predict(self, pred_loader: DataLoader) -> torch.Tensor:
         """
         추천 결과를 생성합니다.
 
         Parameters
         ----------
-        dataset : Dataset
-            추천에 사용할 데이터셋
+        pred_loader : DataLoader
+            추천에 사용할 데이터로더
 
         Returns
         -------
@@ -141,9 +140,14 @@ class AutoEncoder(BaseRecommender):
             추천 결과
         """
         self.eval()
-        pred = self(dataset.X)
+        preds = []
+        with torch.no_grad():
+            for X, _ in pred_loader:
+                pred = self(X).numpy()
+                preds.append(pred)
+        preds = torch.Tensor(np.array(preds))
 
-        return pred
+        return preds
 
     def _train_one_epoch(self, train_loader: DataLoader):
         """

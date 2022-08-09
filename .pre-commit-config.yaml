@@ -65,4 +65,5 @@ repos:
             "--disable=too-many-instance-attributes",
             "--disable=too-many-arguments",
             "--disable=invalid-name",
+            "--disable=fixme",
           ]
