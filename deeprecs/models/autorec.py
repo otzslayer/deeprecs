@@ -1,3 +1,4 @@
+# pylint: disable=no-member
 # TODO: check_commit_template.py 실패했을 때
 #       다음 커밋 때 이전 메시지 저장해서 불러오기
 #       열심히 썼는데, 고대로 날아가면...
@@ -43,7 +44,11 @@ class AutoEncoder(BaseRecommender):
     `_final_activation` : ACTIVATION
         AutoEncoder의 output layer의 활성화 함수
     `_optimizer`: Union[str, Optimizer]
+        AutoEncoder가 학습할 때 사용할 최적화 알고리즘
     `_loss` : _Loss
+        AutoEncoder가 학습할 때 사용할 손실함수
+    `_device` : Union[str, torch.device]
+        AutoEncoder가 학습할 때 사용할 device
 
     References
     ----------
@@ -57,22 +62,32 @@ class AutoEncoder(BaseRecommender):
         final_activation: ACTIVATION = nn.ReLU(),
         optimizer: Union[str, Optimizer] = "adam",
         loss: _Loss = nn.MSELoss(),
+        device: Union[str, torch.device] = "cpu",
     ):
-        # TODO: device 추가
-        # TODO: optimizer, loss docstring 추가
         super().__init__()
         self._input_dim = input_dim
         self._hidden_dim = hidden_dim
         self._encoder = nn.Linear(input_dim, hidden_dim)
         self._decoder = nn.Linear(hidden_dim, input_dim)
         self._final_activation = final_activation
+        self._loss = loss
+
         if isinstance(optimizer, str):
             self._set_optimizer(optimizer)
         elif isinstance(optimizer, Optimizer):
             self._optimizer = optimizer
         else:
+            # TODO: 에러메세지 작성
             raise ValueError
-        self._loss = loss
+
+        if isinstance(device, str):
+            self._set_device(device)
+        elif isinstance(device, torch.device):
+            self._device = device
+        else:
+            # TODO: 에러메세지 작성
+            raise ValueError
+        self.to(device)
 
     def _set_optimizer(self, optimizer: str):
         """
@@ -92,6 +107,30 @@ class AutoEncoder(BaseRecommender):
         if optimizer == "adam":
             self._optimizer = Adam(self.parameters(), lr=0.001)
         else:
+            # TODO: 에러메세지 작성
+            raise ValueError
+
+    def _set_device(self, device: str):
+        """
+        device 이름을 실제 torch.device로 변경
+
+        Parameters
+        ----------
+        device : str
+           device 이름
+
+        Raises
+        ------
+        ValueError
+            미리 정해지지 않은 device 이름을 사용할 경우 에러
+        """
+        device = device.lower()
+        if device == "cpu":
+            self._device = torch.device("cpu")
+        elif device in ["gpu", "cuda"]:
+            self._device = torch.device("cuda")
+        else:
+            # TODO: 에러메세지 작성
             raise ValueError
 
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
