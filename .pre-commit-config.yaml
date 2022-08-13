@@ -67,3 +67,8 @@ repos:
             "--disable=invalid-name",
             "--disable=fixme",
           ]
+      - id: pytest
+        name: pytest
+        entry: python -m pytest deeprecs/tests
+        language: system
+        types: [python]

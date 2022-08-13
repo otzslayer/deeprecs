@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+import numpy as np
 import pandas as pd
 import pytest
 import pytest_lazyfixture
@@ -8,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from deeprecs.data.data import AEDataset
 from deeprecs.models.base import BaseRecommender
+from deeprecs.utils.loss import RMSELoss
 
 
 @pytest.mark.parametrize("model", [pytest_lazyfixture.lazy_fixture("autorec")])
@@ -24,19 +26,23 @@ def test_ml100k(model: BaseRecommender):
 
     # TODO: 데이터도 fixture로 관리 / train, test까지
     ml = pd.read_csv("./data/ml-100k/ml-100k_pivot.csv", index_col=0)
+    ml = ml.fillna(0)
     train, test = map(
         AEDataset,
         train_test_split(
-            torch.Tensor(ml.values), test_size=0.2, random_state=42
+            torch.Tensor(ml.values), test_size=0.1, random_state=42
         ),
     )
-    train_loader, test_loader = DataLoader(train), DataLoader(test)
+    train_loader = DataLoader(train, batch_size=32)
+    test_loader = DataLoader(test, batch_size=len(test))
 
     model.fit(train_loader, epochs=1)
-    pred = model.predict(test_loader)
+    # TODO: reshape 하지 않고, test랑 형태 맞출 수 있는 방법 찾기
+    #       batch_size 1일 때, pred -> (93, 1=batch_size, 1682) test -> (93, 1682)
+    pred = model.predict(test_loader).reshape(-1, 1682)
+    pred = np.clip(pred, 1, 5)
 
-    # TODO: score 계산해서, base score 이상인 거만 테스트 통과하게끔
+    rmse = RMSELoss()(test.y, pred)
     # https://paperswithcode.com/sota/collaborative-filtering-on-movielens-100k
-    # 기준 0.88은 넘어야하지 않을까?
-    # u1 split이 뭔지는 조사 필요
-    assert pred.reshape(-1, 1682).shape == test.y.shape
+    # 기준으로 가장 높은 rmse는 0.996
+    assert rmse <= 1.15
