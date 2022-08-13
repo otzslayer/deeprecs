@@ -130,3 +130,14 @@ dmypy.json
 
 # VS Code settings
 .vscode
+
+# ksk 개인 파일
+Pipfile
+Pipfile.lock
+commit_template.txt
+check_commit_template.py
+setting.bat
+setting.sh
+.gitmessage
+.archive
+*.ipynb
