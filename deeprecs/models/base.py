@@ -26,7 +26,6 @@ class BaseRecommender(nn.Module):
 
     @abstractmethod
     def forward(self, *args, **kwargs):
-
         r"""Forward propagation을 수행합니다."""
 
     @abstractmethod
