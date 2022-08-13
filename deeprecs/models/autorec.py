@@ -1,3 +1,6 @@
+# TODO: check_commit_template.py 실패했을 때
+#       다음 커밋 때 이전 메시지 저장해서 불러오기
+#       열심히 썼는데, 고대로 날아가면...
 from typing import Final, Union
 
 import numpy as np
@@ -54,6 +57,7 @@ class AutoEncoder(BaseRecommender):
         loss: _Loss = nn.MSELoss(),
     ):
         # TODO: device 추가
+        # TODO: optimizer, loss docstring 추가
         super().__init__()
         self._input_dim = input_dim
         self._hidden_dim = hidden_dim
