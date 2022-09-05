@@ -7,7 +7,7 @@ from torch import nn, optim
 
 from deeprecs.models.base import BaseRecommender
 from deeprecs.data import NCFData
-
+from deeprecs.utils import metrics
 
 class NCF(BaseRecommender):
     r"""NCF(Neural Collaborative Filtering) 추천 모델 클래스
@@ -44,7 +44,7 @@ class NCF(BaseRecommender):
         layers: List = None,
         lr: float = 0.001,
         device: torch.device = None,
-    ):
+        ):
 
         super().__init__()
 
@@ -54,6 +54,9 @@ class NCF(BaseRecommender):
         self.num_factor = num_factor
         self.layers = layers
         self.lr = lr
+        self.top_k = 10
+        self.model_save = True
+        self.model_path = '../results/'
 
         self.embed_user_gmf = nn.Embedding(self.num_users, self.num_factor)
         self.embed_item_gmf = nn.Embedding(self.num_items, self.num_factor)
@@ -135,24 +138,11 @@ class NCF(BaseRecommender):
         return rating.view(-1)
 
     def fit(self, epochs: int, train_loader: DataLoader):
-        r"""모델을 데이터에 적합시키는 메서드로 `_train_one_epoch`을 반복합니다.
+        r"""모델을 데이터에 적합시키는 메서드로 `_train_one_epoch`을 반복합니다."""
 
-        NCF needs its own DataLoader 
-        ----------
-        train_dataset = NCFData(train_data,
-                                item_num,
-                                train_mat,
-                                num_ng,
-                                is_training=True)
-        train_loader = DataLoader(train_dataset,
-                                  batch_size,
-                                  shuffle=True,
-                                  num_workers=4)
-        """
-
-        self.train()
-        total_loss = 0
         for epoch in range(epochs):
+            self.train()
+            total_loss = 0
             train_loader.dataset.ng_sample()
             loss = self._train_one_epoch(train_loader)
             total_loss += loss
@@ -161,10 +151,26 @@ class NCF(BaseRecommender):
                     Epoch Loss : {loss}, \
                     Total Loss : {total_loss}')
 
+            self.eval()
+            best_hr = 0
+
+            HR, NDCG = metrics(model, test_loader, self.top_k)
+            print("HR: {:.3f}\tNDCG: {:.3f}".format(np.mean(HR), np.mean(NDCG)))
+
+            if HR > best_hr:
+                best_hr, best_ndcg, best_epoch = HR, NDCG, epoch
+                if self.model_save:
+                    if not os.path.exists(self.model_path):
+                        os.mkdir(self.model_path)
+                    torch.save(
+                        model, "{}{}.pth".format(self.model_path, self.model)
+                    )
+
+        print("End. Best epoch {:03d}: HR = {:.3f}, NDCG = {:.3f}".format(
+                    best_epoch, best_hr, best_ndcg))
+
     def predict(self):
         r"""추천 결과를 생성합니다."""
-
-        self.eval()
 
     def _train_one_epoch(self, train_loader: DataLoader):
         r"""데이터에 대해 1 epoch을 학습합니다."""
