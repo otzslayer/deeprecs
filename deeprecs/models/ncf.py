@@ -1,15 +1,16 @@
 from typing import List
 
-
+import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from torch import nn, optim
+from torch.utils.data import DataLoader
 
 from deeprecs.models.base import BaseRecommender
-from deeprecs.data import NCFData
-from deeprecs.utils import metrics
+from deeprecs.utils.metrics import hit, ndcg
+
 
 class NCF(BaseRecommender):
+
     r"""NCF(Neural Collaborative Filtering) 추천 모델 클래스
 
     Parameters
@@ -44,7 +45,7 @@ class NCF(BaseRecommender):
         layers: List = None,
         lr: float = 0.001,
         device: torch.device = None,
-        ):
+    ):
 
         super().__init__()
 
@@ -54,9 +55,6 @@ class NCF(BaseRecommender):
         self.num_factor = num_factor
         self.layers = layers
         self.lr = lr
-        self.top_k = 10
-        self.model_save = True
-        self.model_path = '../results/'
 
         self.embed_user_gmf = nn.Embedding(self.num_users, self.num_factor)
         self.embed_item_gmf = nn.Embedding(self.num_items, self.num_factor)
@@ -76,15 +74,15 @@ class NCF(BaseRecommender):
         self.logistic = torch.nn.Sigmoid()
         self.loss_func = nn.BCEWithLogitsLoss()
 
-        if self.model == 'NeuMF-pretrained':
+        if self.model == "NeuMF-pretrained":
             self.optimizer = optim.SGD(self.parameters(), self.lr)
         else:
             self.optimizer = optim.Adam(self.parameters(), self.lr)
 
-        if not (device != 'cuda' or torch.cuda.is_available()):
+        if not (device != "cuda" or torch.cuda.is_available()):
             self.devide = device
         else:
-            raise RuntimeError(f'CUDA error: invalid argument {device}')
+            raise RuntimeError(f"CUDA error: invalid argument {device}")
 
         self._init_weight()
 
@@ -105,7 +103,8 @@ class NCF(BaseRecommender):
             nn.init.xavier_uniform_(self.affine_output.weight)
             # nn.init.normal_(self.affine_output.weight)
 
-        else:  # pretrained weight가 있는 경우
+        else:
+            # pretrained weight가 있는 경우
             pass
 
     def forward(self, user_ind: torch.Tensor, item_ind: torch.Tensor):
@@ -116,8 +115,7 @@ class NCF(BaseRecommender):
         user_embedding_mlp = self.embed_user_mlp(user_ind)
         item_embedding_mlp = self.embed_item_mlp(item_ind)
 
-        mlp_vector = torch.cat(
-            [user_embedding_mlp, item_embedding_mlp], dim=-1)
+        mlp_vector = torch.cat([user_embedding_mlp, item_embedding_mlp], dim=-1)
 
         gmf_vector = torch.mul(user_embedding_gmf, item_embedding_gmf)
 
@@ -137,37 +135,34 @@ class NCF(BaseRecommender):
         rating = self.logistic(logits)
         return rating.view(-1)
 
-    def fit(self, epochs: int, train_loader: DataLoader):
+    def fit(self, train_loader: DataLoader):
         r"""모델을 데이터에 적합시키는 메서드로 `_train_one_epoch`을 반복합니다."""
 
-        for epoch in range(epochs):
-            self.train()
-            total_loss = 0
-            train_loader.dataset.ng_sample()
-            loss = self._train_one_epoch(train_loader)
-            total_loss += loss
+        self.train()
+        train_loader.dataset.ng_sample()
+        loss = self._train_one_epoch(train_loader)
 
-            print(f'[Training Epoch {epoch}] \
-                    Epoch Loss : {loss}, \
-                    Total Loss : {total_loss}')
+        return loss
 
-            self.eval()
-            best_hr = 0
+    def evaluate(self, test_loader: DataLoader, top_k: int):
+        r"""모델을 평가합니다."""
 
-            HR, NDCG = metrics(model, test_loader, self.top_k)
-            print("HR: {:.3f}\tNDCG: {:.3f}".format(np.mean(HR), np.mean(NDCG)))
+        self.eval()
+        HR, NDCG = [], []
 
-            if HR > best_hr:
-                best_hr, best_ndcg, best_epoch = HR, NDCG, epoch
-                if self.model_save:
-                    if not os.path.exists(self.model_path):
-                        os.mkdir(self.model_path)
-                    torch.save(
-                        model, "{}{}.pth".format(self.model_path, self.model)
-                    )
+        for user, item, _ in test_loader:
+            user = user.to(self.device)
+            item = item.to(self.device)
+            y_pred = self(user, item)
 
-        print("End. Best epoch {:03d}: HR = {:.3f}, NDCG = {:.3f}".format(
-                    best_epoch, best_hr, best_ndcg))
+            _, indices = torch.topk(y_pred, top_k)
+            pred_items = torch.take(item, indices).cpu().numpy().tolist()
+
+            true_item = item[0].item()
+            HR.append(hit(true_item, pred_items))
+            NDCG.append(ndcg(true_item, pred_items))
+
+        return np.mean(HR), np.mean(NDCG)
 
     def predict(self):
         r"""추천 결과를 생성합니다."""
@@ -181,8 +176,8 @@ class NCF(BaseRecommender):
             label = batch[2].float().to(self.device)
 
             self.zero_grad()
-            pred = self.forward(user, item)
+            pred = self(user, item)
             loss = self.loss_func(pred, label)
             loss.backward()
             self.optimizer.step()
-            return loss.items()
+        return loss.items()
